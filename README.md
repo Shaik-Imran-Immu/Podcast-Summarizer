@@ -172,3 +172,6 @@ After installation, you can run the application with :
 
 
 This tool represents a practical application of modern AI technologies to solve real-world information processing challenges while maintaining user privacy and system reliability.
+
+
+![Image](https://github.com/user-attachments/assets/b83b1c4d-22cb-4826-b32b-2c70d9ea0adf)
