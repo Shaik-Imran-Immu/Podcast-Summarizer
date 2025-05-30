@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Podcast Summarizer Pro</title>
+  <style>
+    :root {
+      --primary: #4361ee;
+      --secondary: #3f37c9;
+      --light: #f8f9fa;
+      --dark: #212529;
+      --gray: #6c757d;
+      --success: #28a745;
+      --danger: #dc3545;
+      --warning: #ffc107;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #e9ecef;
+      display: flex;
+      justify-content: center;
+      padding: 2rem;
+      margin: 0;
+      color: var(--dark);
+      line-height: 1.6;
+    }
+
+    .container {
+      background: white;
+      padding: 2.5rem;
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 900px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      color: var(--primary);
+      font-size: 2rem;
+    }
+
+    .upload-section {
+      background: var(--light);
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 2rem;
+      border: 1px dashed var(--gray);
+    }
+
+    .file-input-wrapper {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      align-items: center;
+    }
+
+    #audioFile {
+      flex-grow: 1;
+      padding: 0.5rem;
+      border: 1px solid var(--gray);
+      border-radius: 4px;
+    }
+
+    button {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    button:hover {
+      background-color: var(--secondary);
+      transform: translateY(-2px);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    button:disabled {
+      background-color: var(--gray);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .result-section {
+      margin-top: 2rem;
+    }
+
+    .result-box {
+      background: var(--light);
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      border: 1px solid #dee2e6;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.8;
+    }
+
+    .result-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .copy-btn {
+      background: var(--gray);
+      padding: 0.25rem 0.75rem;
+      font-size: 0.8rem;
+    }
+
+    .key-points-list {
+      padding-left: 1.5rem;
+      margin: 0;
+    }
+
+    .key-points-list li {
+      margin-bottom: 0.8rem;
+      position: relative;
+      padding-left: 1.5rem;
+    }
+
+    .key-points-list li:before {
+      content: "•";
+      color: var(--primary);
+      font-weight: bold;
+      position: absolute;
+      left: 0;
+    }
+
+    .loading {
+      color: var(--gray);
+      font-style: italic;
+    }
+
+    .status {
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      padding: 0.75rem;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .status:before {
+      content: "";
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+
+    .status-ready {
+      background-color: #e2e3e5;
+      color: #383d41;
+    }
+
+    .status-ready:before {
+      background-color: var(--gray);
+    }
+
+    .status-processing {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+
+    .status-processing:before {
+      background-color: var(--warning);
+      animation: pulse 1.5s infinite;
+    }
+
+    .status-success {
+      background-color: #d4edda;
+      color: #155724;
+    }
+
+    .status-success:before {
+      background-color: var(--success);
+    }
+
+    .status-error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+
+    .status-error:before {
+      background-color: var(--danger);
+    }
+
+    progress {
+      width: 100%;
+      margin-top: 0.5rem;
+      height: 8px;
+      border-radius: 4px;
+      border: none;
+    }
+
+    progress::-webkit-progress-bar {
+      background-color: #f1f1f1;
+      border-radius: 4px;
+    }
+
+    progress::-webkit-progress-value {
+      background-color: var(--primary);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+
+    .error-message {
+      color: var(--danger);
+      font-weight: 500;
+    }
+
+    .word-count {
+      font-size: 0.8rem;
+      color: var(--gray);
+      margin-top: 0.5rem;
+      font-style: italic;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 1.5rem;
+      }
+      
+      .file-input-wrapper {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      
+      .result-box {
+        max-height: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Podcast Summarizer</h1>
+    
+    <div class="upload-section">
+      <h2>Upload Your Podcast</h2>
+      <form id="uploadForm" enctype="multipart/form-data">
+        <div class="file-input-wrapper">
+          <input type="file" id="audioFile" name="file" accept="audio/*" required />
+          <button type="submit" id="submitBtn">Process Podcast</button>
+        </div>
+        <div class="status status-ready" id="status">Ready to upload</div>
+        <progress id="progressBar" value="0" max="100" style="display: none;"></progress>
+      </form>
+    </div>
+
+    <div class="result-section">
+      <div class="section-header">
+        <h2>Results</h2>
+      </div>
+      
+      <div class="result-title">
+        <h3>Transcript <span id="transcriptCount" class="word-count"></span></h3>
+      </div>
+      <div class="result-box" id="transcript"><span class="loading">Transcript will appear here...</span></div>
+
+      <div class="result-title">
+        <h3>Key Points</h3>
+      </div>
+      <div class="result-box" id="keyPoints"><span class="loading">Key points will appear here...</span></div>
+
+      <div class="result-title">
+        <h3>Summary <span id="summaryCount" class="word-count"></span></h3>
+      </div>
+      <div class="result-box" id="summary"><span class="loading">Summary will appear here...</span></div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const apiUrl = 'http://127.0.0.1:5000/process';
+      const fileInput = document.getElementById('audioFile');
+      const submitBtn = document.getElementById('submitBtn');
+      const status = document.getElementById('status');
+      const progressBar = document.getElementById('progressBar');
+      
+      if (!fileInput.files.length) {
+        status.textContent = 'Please select an audio file first';
+        status.className = 'status status-error';
+        return;
+      }
+
+      // Reset UI
+      submitBtn.disabled = true;
+      status.textContent = 'Processing audio file...';
+      status.className = 'status status-processing';
+      progressBar.style.display = 'block';
+      progressBar.value = 0;
+      
+      // Clear previous results
+      document.getElementById('transcript').innerHTML = '<span class="loading">Transcribing audio...</span>';
+      document.getElementById('keyPoints').innerHTML = '<span class="loading">Extracting key points...</span>';
+      document.getElementById('summary').innerHTML = '<span class="loading">Generating summary...</span>';
+      document.getElementById('transcriptCount').textContent = '';
+      document.getElementById('summaryCount').textContent = '';
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      try {
+        // Update progress bar during upload
+        const progressInterval = setInterval(() => {
+          if (progressBar.value < 80) { // Leave room for processing progress
+            progressBar.value += 5;
+          }
+        }, 300);
+
+        // Start the processing
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          body: formData
+        });
+
+        clearInterval(progressInterval);
+        progressBar.value = 90; // Indicate processing is happening
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Server returned ${response.status} status`);
+        }
+
+        const result = await response.json();
+        progressBar.value = 100;
+
+        // Display results with proper fallbacks
+        if (result.transcript) {
+          document.getElementById('transcript').textContent = result.transcript;
+          const wordCount = result.transcript.split(/\s+/).length;
+          document.getElementById('transcriptCount').textContent = `${wordCount} words`;
+        } else {
+          document.getElementById('transcript').innerHTML = 
+            '<span class="error-message">Transcript not available</span>';
+        }
+        
+        if (result.key_points?.length) {
+          document.getElementById('keyPoints').innerHTML = 
+            `<ul class="key-points-list">${
+              result.key_points.map(point => `<li>${point}</li>`).join('')
+            }</ul>`;
+        } else {
+          document.getElementById('keyPoints').innerHTML = 
+            '<span class="error-message">No key points could be extracted</span>';
+        }
+        
+        if (result.summary) {
+          document.getElementById('summary').textContent = result.summary;
+          const wordCount = result.summary.split(/\s+/).length;
+          document.getElementById('summaryCount').textContent = `${wordCount} words`;
+        } else {
+          document.getElementById('summary').innerHTML = 
+            '<span class="error-message">Summary not available</span>';
+        }
+
+        status.textContent = 'Processing complete!';
+        status.className = 'status status-success';
+        
+      } catch (error) {
+        console.error('Processing error:', error);
+        status.textContent = `Error: ${error.message}`;
+        status.className = 'status status-error';
+        
+        document.getElementById('transcript').innerHTML = 
+          '<span class="error-message">Error processing transcript</span>';
+        document.getElementById('keyPoints').innerHTML = 
+          '<span class="error-message">Error extracting key points</span>';
+        document.getElementById('summary').innerHTML = 
+          '<span class="error-message">Error generating summary</span>';
+      } finally {
+        submitBtn.disabled = false;
+        setTimeout(() => {
+          progressBar.style.display = 'none';
+          progressBar.value = 0;
+        }, 1500);
+      }
+    });
+
+    function copyToClipboard(elementId) {
+      const element = document.getElementById(elementId);
+      let text = element.innerText;
+      
+      // Clean up key points formatting
+      if (elementId === 'keyPoints') {
+        text = text.split('\n')
+          .filter(line => line.trim())
+          .map(line => line.replace(/^•\s*/, '- '))
+          .join('\n');
+      }
+    }
+  </script>
+</body>
+</html>
