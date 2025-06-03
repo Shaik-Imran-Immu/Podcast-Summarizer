@@ -178,37 +178,82 @@ def transcribe_audio(audio_path):
         logger.error(f"❌ Transcription failed: {str(e)}")
         raise
 
-def extract_key_points(transcript, num_points=5):
-    """Extract key points from complete transcript with multiple fallbacks"""
+def extract_key_points(transcript, num_points=20):
+  
     if not transcript.strip():
         return ["No transcript available for key points"]
     
     try:
-        sentences = nltk.sent_tokenize(transcript)
+        # Initialize NLTK resources
+        try:
+            nltk.data.find('tokenizers/punkt')
+            nltk.data.find('corpora/stopwords')
+        except LookupError:
+            nltk.download('punkt')
+            nltk.download('stopwords')
         
-        # Fallback if standard tokenization fails
+        # Clean the transcript
+        clean_text = re.sub(r'\s+', ' ', transcript).strip()
+        sentences = nltk.sent_tokenize(clean_text)
+        
+        # Fallback 1: If standard tokenization fails
         if len(sentences) <= 1:
-            sentences = [s.strip() + '.' for s in transcript.split('. ') if s.strip()]
+            sentences = [s.strip() + '.' for s in clean_text.split('. ') if s.strip()]
         
-        # If still insufficient, use paragraph breaks
+        # Fallback 2: If still insufficient
         if len(sentences) <= 1:
-            sentences = [p.strip() for p in transcript.split('\n') if p.strip()]
+            sentences = [p.strip() for p in clean_text.split('\n') if p.strip()]
         
-        # Select diverse sentences
-        if len(sentences) <= num_points:
-            return sentences[:num_points]
+        # If we have enough sentences, use advanced selection
+        if len(sentences) >= num_points:
+            try:
+                # Method 1: TF-IDF scoring
+                from sklearn.feature_extraction.text import TfidfVectorizer
+                vectorizer = TfidfVectorizer(stop_words='english')
+                X = vectorizer.fit_transform(sentences)
+                scores = X.sum(axis=1)
+                ranked_sentences = [sentences[i] for i in scores.argsort(axis=0)[::-1].ravel()]
+                return ranked_sentences[:num_points]
+                
+            except Exception:
+                # Method 2: Position + length weighted selection
+                mid_point = len(sentences) // 2
+                quarter_point = mid_point // 2
+                selected_indices = set()
+                
+                # Select from beginning, middle, and end
+                for i in range(0, len(sentences), len(sentences)//num_points):
+                    if len(selected_indices) >= num_points:
+                        break
+                    if i not in selected_indices:
+                        selected_indices.add(i)
+                
+                # Add some longer sentences
+                sentence_lengths = [len(s.split()) for s in sentences]
+                longest_indices = sorted(range(len(sentence_lengths)), 
+                                  key=lambda x: sentence_lengths[x], 
+                                  reverse=True)[:num_points//2]
+                selected_indices.update(longest_indices)
+                
+                return [sentences[i] for i in sorted(selected_indices)][:num_points]
         
-        step = max(1, len(sentences) // num_points)
-        key_points = [sentences[i] for i in range(0, len(sentences), step)][:num_points]
-        return [kp for kp in key_points if kp.strip()]
-    
+        # Fallback 3: If we don't have enough sentences
+        return sentences[:num_points]
+        
     except Exception as e:
-        logger.error(f"❌ Key points extraction failed: {str(e)}")
-        # Ultimate fallback - return beginning of text
-        return [transcript[:200] + "..." if len(transcript) > 200 else transcript]
-
-def generate_summary(transcript):
-    """Generate summary with multiple fallback strategies"""
+        logger.error(f"Key points extraction error: {str(e)}")
+        # Ultimate fallback - return most significant parts
+        words = transcript.split()
+        if len(words) > 200:
+            return [
+                ' '.join(words[:50]) + '...',
+                '...' + ' '.join(words[len(words)//2-25:len(words)//2+25]) + '...',
+                '...' + ' '.join(words[-50:])
+            ]
+        return [transcript] if transcript else ["Could not extract key points"]
+    
+def generate_summary(transcript, min_length=150, max_length=300):
+    
     if not transcript.strip():
         return "No transcript available for summary"
     
@@ -217,33 +262,40 @@ def generate_summary(transcript):
     word_count = len(words)
     
     # Skip summary if too short
-    if word_count < 50:
+    if word_count < 100:
         return "Transcript too short for meaningful summary"
     
-    # Attempt 1: Full BART summarization
+    # Clean and prepare text
+    clean_text = ' '.join(words[:3000])  # Conservative limit for model input
+    
+    # Attempt 1: Abstractive Summarization with Length Optimization
     try:
-        # Prepare safe input text
-        input_text = ' '.join(words[:MAX_INPUT_WORDS])
+        # Dynamic length adjustment based on content
+        content_length = min(max_length, max(min_length, word_count // 4))
+        ideal_length = min(max_length, content_length + 50)  # Add buffer
         
-        # Calculate lengths (100-200 words)
-        max_len = 400
-        min_len = 200
-        
-        logger.info(f"📊 Attempting full summary from {len(input_text.split())} words...")
+        logger.info(f"📊 Generating abstractive summary (target: {ideal_length} words)...")
         
         summary = summarizer(
-            input_text,
-            max_length=max_len,
-            min_length=min_len,
+            clean_text,
+            max_length=ideal_length,
+            min_length=max(min_length, ideal_length - 50),
             do_sample=False,
-            truncation=True
+            truncation=True,
+            no_repeat_ngram_size=3,  # Better flow
+            encoder_no_repeat_ngram_size=2
         )[0]['summary_text']
         
-        logger.info(f"✅ Summary generated in {time.time() - start_time:.2f} seconds")
+        # Post-processing
+        summary = re.sub(r'\s+', ' ', summary).strip()
+        summary = re.sub(r'\.\s+\.', '.', summary)  # Fix double periods
+        
+        logger.info(f"✅ Abstractive summary generated ({len(summary.split())} words, {time.time()-start_time:.2f}s)")
         return summary
     
     except Exception as e:
-        logger.warning(f"⚠️ Primary summary failed: {str(e)}")
+        logger.warning(f"⚠️ Abstractive summary failed: {str(e)}")
+        
         # Attempt 2: Extractive summarization
         try:
             from sklearn.feature_extraction.text import TfidfVectorizer
